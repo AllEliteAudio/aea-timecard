@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Employee Time Card</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
+
+  :root {
+    --ink: #1a1a1a;
+    --rule: #d0d0d0;
+    --rule-light: #e8e8e8;
+    --accent: #1a3a5c;
+    --accent-light: #e8eef5;
+    --total-bg: #f0f4f8;
+    --grand-bg: #1a3a5c;
+    --grand-text: #ffffff;
+    --input-bg: #fafafa;
+    --off-bg: #f5f5f5;
+    --error: #c0392b;
+    --success: #1a6640;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'IBM Plex Sans', sans-serif;
+    background: #f2f2f0;
+    color: var(--ink);
+    min-height: 100vh;
+    padding: 24px 16px 60px;
+  }
+
+  .page { max-width: 860px; margin: 0 auto; background: #fff; border: 1px solid var(--rule); }
+
+  /* Header */
+  .header {
+    background: var(--accent); color: #fff;
+    padding: 24px 24px 20px; display: flex;
+    align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+  }
+  .header-left h1 { font-size: 20px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; line-height: 1; }
+  .header-left p  { font-size: 10px; font-family: 'IBM Plex Mono',monospace; opacity: .65; margin-top: 6px; letter-spacing: .08em; text-transform: uppercase; }
+  .period-badge   { font-family: 'IBM Plex Mono',monospace; font-size: 10px; letter-spacing: .06em; text-align: right; opacity: .8; line-height: 1.5; }
+
+  /* Employee */
+  .employee-section { border-bottom: 1px solid var(--rule); padding: 18px 24px; }
+  .field-group label { display: block; font-size: 9px; font-family: 'IBM Plex Mono',monospace; letter-spacing: .12em; text-transform: uppercase; color: #888; margin-bottom: 5px; }
+  .field-group input { width: 100%; max-width: 320px; border: none; border-bottom: 1.5px solid var(--rule); background: transparent; font-family: 'IBM Plex Sans',sans-serif; font-size: 15px; color: var(--ink); padding: 4px 0; outline: none; transition: border-color .15s; }
+  .field-group input:focus { border-bottom-color: var(--accent); }
+
+  /* Week label */
+  .week-label {
+    background: var(--accent-light); border-bottom: 1px solid var(--rule); border-top: 1px solid var(--rule);
+    padding: 9px 24px; font-size: 10px; font-family: 'IBM Plex Mono',monospace;
+    letter-spacing: .1em; text-transform: uppercase; color: var(--accent);
+    font-weight: 600; display: flex; justify-content: space-between; align-items: center;
+  }
+  .week-label span { opacity: .7; font-weight: 400; }
+
+  /* Table */
+  .time-table { width: 100%; border-collapse: collapse; }
+  .time-table thead tr { border-bottom: 2px solid var(--rule); }
+  .time-table thead th { font-family: 'IBM Plex Mono',monospace; font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: #888; font-weight: 600; padding: 10px 8px 8px; text-align: left; white-space: nowrap; }
+  .time-table thead th:first-child { padding-left: 24px; }
+  .time-table thead th:last-child  { padding-right: 24px; text-align: right; }
+  .time-table tbody tr { border-bottom: 1px solid var(--rule-light); }
+  .time-table tbody tr:hover { background: #fafafa; }
+  .time-table tbody tr.is-off { background: var(--off-bg); }
+  .time-table tbody tr.is-off:hover { background: #efefef; }
+  .time-table tbody td { padding: 7px 8px; font-size: 13px; vertical-align: middle; }
+  .time-table tbody td:first-child { padding-left: 24px; }
+  .time-table tbody td:last-child  { padding-right: 24px; }
+
+  .day-name { font-weight: 500; font-size: 13px; min-width: 76px; white-space: nowrap; }
+  .day-name .date-sub { display: block; font-size: 10px; font-family: 'IBM Plex Mono',monospace; color: #aaa; font-weight: 400; margin-top: 1px; }
+
+  /* Single time select */
+  select.time-sel {
+    border: 1px solid var(--rule); border-radius: 4px; background: var(--input-bg);
+    font-family: 'IBM Plex Mono',monospace; font-size: 12px; color: var(--ink);
+    padding: 5px 6px; outline: none; cursor: pointer; transition: border-color .15s;
+    width: 110px;
+  }
+  select.time-sel:focus   { border-color: var(--accent); background: #fff; }
+  select.time-sel:disabled { opacity: .3; cursor: not-allowed; background: transparent; border-color: transparent; }
+
+  /* OFF toggle */
+  .off-toggle { display: flex; align-items: center; gap: 6px; font-family: 'IBM Plex Mono',monospace; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: #999; cursor: pointer; user-select: none; white-space: nowrap; }
+  .off-toggle input[type=checkbox] { display: none; }
+  .off-pill { width: 36px; height: 20px; border-radius: 10px; background: var(--rule); position: relative; transition: background .2s; flex-shrink: 0; }
+  .off-pill::after { content:''; position: absolute; top: 3px; left: 3px; width: 14px; height: 14px; border-radius: 50%; background: #fff; transition: transform .2s; }
+  .off-toggle input:checked + .off-pill { background: var(--accent); }
+  .off-toggle input:checked + .off-pill::after { transform: translateX(16px); }
+
+  /* Hours display */
+  .hours-display { font-family: 'IBM Plex Mono',monospace; font-size: 13px; text-align: right; color: #bbb; min-width: 54px; }
+  .hours-display.has-hours { color: var(--ink); font-weight: 600; }
+  .hours-display.is-off-label { color: #ccc; font-style: italic; font-size: 11px; }
+
+  /* Notes */
+  .notes-input { border: 1px solid var(--rule); border-radius: 4px; background: var(--input-bg); font-family: 'IBM Plex Sans',sans-serif; font-size: 12px; color: var(--ink); padding: 5px 8px; width: 100%; min-width: 100px; outline: none; transition: border-color .15s; }
+  .notes-input:focus { border-color: var(--accent); background: #fff; }
+
+  /* Week subtotal */
+  .week-subtotal td { background: var(--total-bg); border-top: 2px solid var(--rule) !important; border-bottom: 2px solid var(--rule) !important; padding: 10px 8px !important; font-size: 12px; font-family: 'IBM Plex Mono',monospace; letter-spacing: .06em; color: var(--accent); font-weight: 600; text-transform: uppercase; }
+  .week-subtotal td:first-child { padding-left: 24px !important; }
+  .week-subtotal td:last-child  { padding-right: 24px !important; text-align: right; }
+  .subtotal-hours { font-size: 16px; font-weight: 600; }
+
+  /* Mobile cards */
+  .day-cards { display: none; }
+  .day-card { border-bottom: 1px solid var(--rule-light); padding: 14px 20px; }
+  .day-card.is-off { background: var(--off-bg); }
+  .day-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  .day-card-left { display: flex; align-items: center; gap: 10px; }
+  .day-card-name { font-weight: 600; font-size: 15px; }
+  .day-card-date { font-family: 'IBM Plex Mono',monospace; font-size: 11px; color: #aaa; }
+  .day-card-hrs  { font-family: 'IBM Plex Mono',monospace; font-size: 14px; font-weight: 600; color: #ccc; }
+  .day-card-hrs.has-hours { color: var(--accent); }
+  .day-card-hrs.is-off-label { color: #ccc; font-size: 11px; font-style: italic; font-weight: 400; }
+
+  .day-card-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+  .day-card-field label { display: block; font-size: 9px; font-family: 'IBM Plex Mono',monospace; letter-spacing: .1em; text-transform: uppercase; color: #aaa; margin-bottom: 6px; }
+
+  select.card-sel { border: 1px solid var(--rule); border-radius: 6px; background: var(--input-bg); font-family: 'IBM Plex Mono',monospace; font-size: 14px; color: var(--ink); padding: 10px 8px; outline: none; cursor: pointer; width: 100%; }
+  select.card-sel:focus   { border-color: var(--accent); background: #fff; }
+  select.card-sel:disabled { opacity: .25; cursor: not-allowed; background: transparent; border-color: transparent; }
+
+  .day-card-bottom { display: flex; align-items: flex-end; gap: 16px; }
+  .day-card-notes { flex: 1; }
+  .day-card-notes label { display: block; font-size: 9px; font-family: 'IBM Plex Mono',monospace; letter-spacing: .1em; text-transform: uppercase; color: #aaa; margin-bottom: 6px; }
+  .day-card-notes input { width: 100%; border: 1px solid var(--rule); border-radius: 6px; background: var(--input-bg); font-family: 'IBM Plex Sans',sans-serif; font-size: 14px; color: var(--ink); padding: 10px 12px; outline: none; }
+  .day-card-notes input:focus { border-color: var(--accent); background: #fff; }
+  .day-card-off { text-align: center; }
+  .day-card-off span { display: block; font-size: 9px; font-family: 'IBM Plex Mono',monospace; letter-spacing: .1em; text-transform: uppercase; color: #aaa; margin-bottom: 6px; }
+
+  /* Mobile week subtotal */
+  .week-subtotal-mobile { display: none; background: var(--total-bg); border-top: 2px solid var(--rule); border-bottom: 2px solid var(--rule); padding: 12px 20px; justify-content: space-between; align-items: center; font-family: 'IBM Plex Mono',monospace; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+  .week-subtotal-mobile .subtotal-hours { font-size: 18px; }
+
+  /* Grand total */
+  .grand-total-row { background: var(--grand-bg); color: var(--grand-text); padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; border-top: 3px solid #0d2440; }
+  .grand-total-row .label { font-family: 'IBM Plex Mono',monospace; font-size: 10px; letter-spacing: .14em; text-transform: uppercase; opacity: .75; }
+  .grand-total-row .value { font-family: 'IBM Plex Mono',monospace; font-size: 28px; font-weight: 600; letter-spacing: .02em; }
+  .grand-total-row .value small { font-size: 13px; opacity: .6; margin-left: 4px; font-weight: 400; }
+
+  /* Signature */
+  .signature-section { padding: 20px 24px; border-top: 1px solid var(--rule); display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+
+  /* Submit */
+  .submit-section { border-top: 1px solid var(--rule); padding: 18px 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  .email-note { font-size: 11px; color: #888; font-family: 'IBM Plex Mono',monospace; }
+  .email-note strong { color: var(--accent); }
+  .btn-group { display: flex; gap: 10px; flex-wrap: wrap; }
+  .btn-submit { background: var(--accent); color: #fff; border: none; padding: 12px 28px; font-family: 'IBM Plex Sans',sans-serif; font-size: 14px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; cursor: pointer; border-radius: 4px; transition: background .15s; touch-action: manipulation; }
+  .btn-submit:hover { background: #0d2440; }
+  .btn-print  { background: transparent; color: var(--accent); border: 1.5px solid var(--accent); padding: 11px 20px; font-family: 'IBM Plex Sans',sans-serif; font-size: 14px; font-weight: 500; letter-spacing: .05em; text-transform: uppercase; cursor: pointer; border-radius: 4px; transition: background .15s; touch-action: manipulation; }
+  .btn-print:hover { background: var(--accent-light); }
+
+  /* Modal */
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 200; align-items: flex-end; justify-content: center; }
+  .modal-overlay.open { display: flex; }
+  .modal { background: #fff; border-radius: 12px 12px 0 0; padding: 28px 24px 36px; width: 100%; max-width: 500px; box-shadow: 0 -8px 40px rgba(0,0,0,.2); }
+  .modal-handle { width: 40px; height: 4px; background: #ddd; border-radius: 2px; margin: 0 auto 20px; }
+  .modal h2 { font-size: 17px; font-weight: 600; margin-bottom: 6px; color: var(--accent); }
+  .modal p  { font-size: 13px; color: #666; margin-bottom: 20px; line-height: 1.5; }
+  .modal-field { margin-bottom: 16px; }
+  .modal-field label { display: block; font-size: 10px; font-family: 'IBM Plex Mono',monospace; letter-spacing: .1em; text-transform: uppercase; color: #888; margin-bottom: 5px; }
+  .modal-field input { width: 100%; border: 1.5px solid var(--rule); border-radius: 6px; padding: 11px 14px; font-family: 'IBM Plex Sans',sans-serif; font-size: 16px; outline: none; transition: border-color .15s; -webkit-appearance: none; }
+  .modal-field input:focus { border-color: var(--accent); }
+  .modal-actions { display: flex; gap: 10px; margin-top: 24px; }
+  .btn-cancel { flex: 1; background: #f0f0f0; color: #555; border: none; padding: 14px; font-family: 'IBM Plex Sans',sans-serif; font-size: 15px; font-weight: 500; cursor: pointer; border-radius: 6px; touch-action: manipulation; }
+  .btn-send   { flex: 2; background: var(--accent); color: #fff; border: none; padding: 14px; font-family: 'IBM Plex Sans',sans-serif; font-size: 15px; font-weight: 600; cursor: pointer; border-radius: 6px; touch-action: manipulation; }
+  .error-msg  { color: var(--error); font-size: 12px; margin-top: 5px; display: none; }
+
+  .toast { display: none; position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--success); color: #fff; padding: 13px 22px; border-radius: 24px; font-size: 14px; font-family: 'IBM Plex Sans',sans-serif; font-weight: 500; box-shadow: 0 4px 20px rgba(0,0,0,.2); z-index: 300; white-space: nowrap; }
+
+  @media (max-width: 639px) {
+    body { padding: 0 0 60px; }
+    .page { border-left: none; border-right: none; }
+    .header { padding: 20px 20px 16px; }
+    .header-left h1 { font-size: 17px; }
+    .employee-section { padding: 16px 20px; }
+    .week-label { padding: 9px 20px; }
+    .time-table { display: none; }
+    .day-cards { display: block; }
+    .week-subtotal-mobile { display: flex; }
+    .grand-total-row { padding: 14px 20px; }
+    .grand-total-row .value { font-size: 24px; }
+    .signature-section { padding: 16px 20px; grid-template-columns: 1fr; gap: 16px; }
+    .submit-section { padding: 16px 20px; flex-direction: column; align-items: stretch; }
+    .btn-group { flex-direction: column; }
+    .btn-submit, .btn-print { width: 100%; text-align: center; padding: 15px; font-size: 15px; }
+    .email-note { text-align: center; }
+  }
+
+  @media print {
+    body { background: #fff; padding: 0; }
+    .page { border: none; max-width: 100%; }
+    .submit-section, .modal-overlay { display: none !important; }
+    .day-cards { display: none !important; }
+    .time-table { display: table !important; }
+    select { border: none; background: transparent; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="header">
+    <div class="header-left">
+      <h1>Employee Time Card</h1>
+      <p>Two-Week Pay Period</p>
+    </div>
+    <div class="period-badge" id="period-display">Loading...</div>
+  </div>
+
+  <div class="employee-section">
+    <div class="field-group">
+      <label>Employee Name</label>
+      <input type="text" id="emp-name" placeholder="Full name" autocomplete="name">
+    </div>
+  </div>
+
+  <!-- Week 1 -->
+  <div class="week-label">Week 1 <span id="week1-range"></span></div>
+  <table class="time-table">
+    <thead><tr>
+      <th>Day</th><th>Start</th><th>End</th><th>Off</th><th>Notes</th><th style="text-align:right">Hours</th>
+    </tr></thead>
+    <tbody id="week1-body"></tbody>
+    <tfoot><tr class="week-subtotal">
+      <td colspan="5">Week 1 Total</td>
+      <td class="subtotal-hours" id="week1-total">0.00 hrs</td>
+    </tr></tfoot>
+  </table>
+  <div class="day-cards" id="week1-cards"></div>
+  <div class="week-subtotal-mobile" id="week1-sub-mobile">
+    <span>Week 1 Total</span><span class="subtotal-hours" id="week1-total-mobile">0.00 hrs</span>
+  </div>
+
+  <!-- Week 2 -->
+  <div class="week-label" style="margin-top:2px">Week 2 <span id="week2-range"></span></div>
+  <table class="time-table">
+    <thead><tr>
+      <th>Day</th><th>Start</th><th>End</th><th>Off</th><th>Notes</th><th style="text-align:right">Hours</th>
+    </tr></thead>
+    <tbody id="week2-body"></tbody>
+    <tfoot><tr class="week-subtotal">
+      <td colspan="5">Week 2 Total</td>
+      <td class="subtotal-hours" id="week2-total">0.00 hrs</td>
+    </tr></tfoot>
+  </table>
+  <div class="day-cards" id="week2-cards"></div>
+  <div class="week-subtotal-mobile" id="week2-sub-mobile">
+    <span>Week 2 Total</span><span class="subtotal-hours" id="week2-total-mobile">0.00 hrs</span>
+  </div>
+
+  <div class="grand-total-row">
+    <div class="label">Pay Period Total</div>
+    <div class="value" id="grand-total">0.00 <small>hrs</small></div>
+  </div>
+
+  <div class="signature-section">
+    <div class="field-group">
+      <label>Employee Signature</label>
+      <input type="text" id="emp-sig" placeholder="Type full name to sign">
+    </div>
+    <div class="field-group">
+      <label>Date Submitted</label>
+      <input type="text" id="submit-date" placeholder="MM/DD/YYYY">
+    </div>
+  </div>
+
+  <div class="submit-section">
+    <div class="email-note">Sends to <strong id="mgr-email-display">lenny@alleliteaudio.com</strong></div>
+    <div class="btn-group">
+      <button class="btn-print" onclick="window.print()">Print / PDF</button>
+      <button class="btn-submit" onclick="openModal()">Submit Timecard</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <h2>Submit Timecard</h2>
+    <p>Your timecard will open in your email app, ready to send.</p>
+    <div class="modal-field">
+      <label>Manager / Payroll Email</label>
+      <input type="email" id="manager-email" value="lenny@alleliteaudio.com" oninput="updateMgrDisplay()" inputmode="email">
+      <div class="error-msg" id="email-error">Please enter a valid email address.</div>
+    </div>
+    <div class="modal-field">
+      <label>Additional Note (optional)</label>
+      <input type="text" id="extra-note" placeholder="e.g. Took PTO on Tuesday">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn-send" onclick="sendTimecard()">Open in Email</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast">Timecard ready — check your email app!</div>
+
+<script>
+const DAY_NAMES   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+// Build full list of quarter-hour options: "12:00 AM" ... "11:45 PM"
+const TIME_OPTS = []; // { label, totalMins }
+for (let h = 0; h < 24; h++) {
+  for (let m = 0; m < 60; m += 15) {
+    const ampm = h < 12 ? 'AM' : 'PM';
+    const dh   = h === 0 ? 12 : h > 12 ? h - 12 : h;
+    const label = `${dh}:${String(m).padStart(2,'0')} ${ampm}`;
+    TIME_OPTS.push({ label, totalMins: h * 60 + m });
+  }
+}
+
+// Defaults by day index (0=Sun … 6=Sat). null = OFF.
+const DEF_START = [null, 9*60, 9*60, 9*60, 9*60, 9*60, null];   // 9:00 AM = 540 mins
+const DEF_END   = [null, 17*60, 17*60, 17*60, 17*60, 17*60, null]; // 5:00 PM = 1020 mins
+
+function labelForMins(mins) {
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  const ampm = h < 12 ? 'AM' : 'PM';
+  const dh   = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  return `${dh}:${String(m).padStart(2,'0')} ${ampm}`;
+}
+
+// Dates
+function getSunday() {
+  const t = new Date(); t.setHours(0,0,0,0);
+  const s = new Date(t);
+  s.setDate(t.getDate() - t.getDay() - 14);
+  return s;
+}
+const START = getSunday();
+function addDays(d,n){ const r=new Date(d); r.setDate(r.getDate()+n); return r; }
+function fmt(d)     { return `${MONTH_NAMES[d.getMonth()]} ${d.getDate()}`; }
+function fmtFull(d) { return `${MONTH_NAMES[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`; }
+
+const w1s=START, w1e=addDays(START,6), w2s=addDays(START,7), w2e=addDays(START,13);
+document.getElementById('period-display').innerHTML = `Pay Period<br>${fmtFull(w1s)} – ${fmtFull(w2e)}`;
+document.getElementById('week1-range').textContent  = `${fmt(w1s)} – ${fmt(w1e)}`;
+document.getElementById('week2-range').textContent  = `${fmt(w2s)} – ${fmt(w2e)}`;
+
+const td = new Date();
+document.getElementById('submit-date').value =
+  `${String(td.getMonth()+1).padStart(2,'0')}/${String(td.getDate()).padStart(2,'0')}/${td.getFullYear()}`;
+
+// State
+const state = {};
+function uid(week, i) { return `${week}-${i}`; }
+
+function makeTimeSel(id, cls, defaultMins, disabled) {
+  const sel = document.createElement('select');
+  sel.id = id; sel.className = cls;
+  if (disabled) sel.disabled = true;
+  TIME_OPTS.forEach(o => {
+    const opt = new Option(o.label, o.totalMins, false, o.totalMins === defaultMins);
+    sel.appendChild(opt);
+  });
+  return sel;
+}
+
+function buildWeek(weekKey, weekOffset) {
+  const tbody = document.getElementById(`${weekKey}-body`);
+  const cards = document.getElementById(`${weekKey}-cards`);
+
+  for (let i = 0; i < 7; i++) {
+    const id = uid(weekKey, i);
+    const off = DEF_START[i] === null;
+    state[id] = { startMins: off ? 9*60 : DEF_START[i], endMins: off ? 17*60 : DEF_END[i], off, notes: '' };
+    const s = state[id];
+    const date = addDays(START, weekOffset * 7 + i);
+    const dayDate = `${String(date.getMonth()+1).padStart(2,'0')}/${String(date.getDate()).padStart(2,'0')}`;
+
+    // ── Desktop row ──
+    const tr = document.createElement('tr');
+    if (off) tr.classList.add('is-off');
+    tr.id = `tr-${id}`;
+
+    // Day
+    const tdDay = document.createElement('td');
+    tdDay.className = 'day-name';
+    tdDay.innerHTML = `${DAY_NAMES[i]}<span class="date-sub">${dayDate}</span>`;
+    tr.appendChild(tdDay);
+
+    // Start select
+    const tdS = document.createElement('td');
+    const sSel = makeTimeSel(`dss-${id}`, 'time-sel', s.startMins, off);
+    tdS.appendChild(sSel); tr.appendChild(tdS);
+
+    // End select
+    const tdE = document.createElement('td');
+    const eSel = makeTimeSel(`des-${id}`, 'time-sel', s.endMins, off);
+    tdE.appendChild(eSel); tr.appendChild(tdE);
+
+    // OFF toggle
+    const tdOff = document.createElement('td');
+    const lbl = document.createElement('label'); lbl.className = 'off-toggle';
+    const cb  = document.createElement('input'); cb.type = 'checkbox'; cb.id = `doff-${id}`; if (off) cb.checked = true;
+    const pill = document.createElement('span'); pill.className = 'off-pill';
+    lbl.appendChild(cb); lbl.appendChild(pill); tdOff.appendChild(lbl); tr.appendChild(tdOff);
+
+    // Notes
+    const tdN = document.createElement('td');
+    const nIn = document.createElement('input'); nIn.type='text'; nIn.className='notes-input'; nIn.id=`dn-${id}`; nIn.placeholder='Notes…';
+    tdN.appendChild(nIn); tr.appendChild(tdN);
+
+    // Hours
+    const tdH = document.createElement('td');
+    const hDiv = document.createElement('div');
+    hDiv.className = 'hours-display' + (off ? ' is-off-label' : '');
+    hDiv.id = `dh-${id}`; hDiv.textContent = off ? 'OFF' : '—';
+    tdH.appendChild(hDiv); tr.appendChild(tdH);
+
+    tbody.appendChild(tr);
+
+    // ── Mobile card ──
+    const card = document.createElement('div');
+    card.className = 'day-card' + (off ? ' is-off' : '');
+    card.id = `card-${id}`;
+
+    const mssEl = makeTimeSel(`mss-${id}`, 'card-sel', s.startMins, off);
+    const mesEl = makeTimeSel(`mes-${id}`, 'card-sel', s.endMins,   off);
+
+    card.innerHTML = `
+      <div class="day-card-header">
+        <div class="day-card-left">
+          <span class="day-card-name">${DAY_NAMES[i]}</span>
+          <span class="day-card-date">${dayDate}</span>
+        </div>
+        <div class="day-card-hrs ${off?'is-off-label':''}" id="mh-${id}">${off?'OFF':'—'}</div>
+      </div>
+      <div class="day-card-fields" id="cf-${id}" style="${off?'opacity:.3;pointer-events:none':''}">
+        <div class="day-card-field">
+          <label>Start</label>
+          <div id="mss-slot-${id}"></div>
+        </div>
+        <div class="day-card-field">
+          <label>End</label>
+          <div id="mes-slot-${id}"></div>
+        </div>
+      </div>
+      <div class="day-card-bottom">
+        <div class="day-card-notes">
+          <label>Notes</label>
+          <input type="text" id="mn-${id}" placeholder="OT, PTO, holiday…">
+        </div>
+        <div class="day-card-off">
+          <span>Off</span>
+          <label class="off-toggle" style="justify-content:center">
+            <input type="checkbox" id="moff-${id}" ${off?'checked':''}>
+            <span class="off-pill"></span>
+          </label>
+        </div>
+      </div>
+    `;
+    cards.appendChild(card);
+    document.getElementById(`mss-slot-${id}`).appendChild(mssEl);
+    document.getElementById(`mes-slot-${id}`).appendChild(mesEl);
+
+    // ── Events ──
+    function syncAndRecalc() {
+      s.startMins = parseInt(sSel.value);
+      s.endMins   = parseInt(eSel.value);
+      mssEl.value = sSel.value;
+      mesEl.value = eSel.value;
+      recalcAll();
+    }
+    function mSyncAndRecalc() {
+      s.startMins = parseInt(mssEl.value);
+      s.endMins   = parseInt(mesEl.value);
+      sSel.value  = mssEl.value;
+      eSel.value  = mesEl.value;
+      recalcAll();
+    }
+    sSel.addEventListener('change', syncAndRecalc);
+    eSel.addEventListener('change', syncAndRecalc);
+    mssEl.addEventListener('change', mSyncAndRecalc);
+    mesEl.addEventListener('change', mSyncAndRecalc);
+
+    nIn.addEventListener('input', () => { s.notes = nIn.value; document.getElementById(`mn-${id}`).value = nIn.value; });
+    document.getElementById(`mn-${id}`).addEventListener('input', function() { s.notes = this.value; nIn.value = this.value; });
+
+    cb.addEventListener('change', () => toggleOff(id, cb.checked));
+    document.getElementById(`moff-${id}`).addEventListener('change', function() { toggleOff(id, this.checked); });
+  }
+}
+
+function toggleOff(id, isOff) {
+  state[id].off = isOff;
+  // Desktop
+  const tr = document.getElementById(`tr-${id}`);
+  isOff ? tr.classList.add('is-off') : tr.classList.remove('is-off');
+  document.getElementById(`dss-${id}`).disabled = isOff;
+  document.getElementById(`des-${id}`).disabled = isOff;
+  document.getElementById(`doff-${id}`).checked = isOff;
+  // Mobile
+  const card = document.getElementById(`card-${id}`);
+  isOff ? card.classList.add('is-off') : card.classList.remove('is-off');
+  document.getElementById(`cf-${id}`).style = isOff ? 'opacity:.3;pointer-events:none' : '';
+  document.getElementById(`mss-${id}`).disabled = isOff;
+  document.getElementById(`mes-${id}`).disabled = isOff;
+  document.getElementById(`moff-${id}`).checked = isOff;
+  recalcAll();
+}
+
+buildWeek('week1', 0);
+buildWeek('week2', 1);
+
+function recalcAll() {
+  let grand = 0;
+  ['week1','week2'].forEach(week => {
+    let wk = 0;
+    for (let i = 0; i < 7; i++) {
+      const id = uid(week, i);
+      const s  = state[id];
+      const dh = document.getElementById(`dh-${id}`);
+      const mh = document.getElementById(`mh-${id}`);
+      if (s.off) {
+        dh.textContent = 'OFF'; dh.className = 'hours-display is-off-label';
+        mh.textContent = 'OFF'; mh.className = 'day-card-hrs is-off-label';
+      } else {
+        const mins = s.endMins - s.startMins;
+        if (mins > 0) {
+          const h = mins / 60;
+          dh.textContent = h.toFixed(2); dh.className = 'hours-display has-hours';
+          mh.textContent = h.toFixed(2) + ' hrs'; mh.className = 'day-card-hrs has-hours';
+          wk += h;
+        } else {
+          dh.textContent = '—'; dh.className = 'hours-display';
+          mh.textContent = '—'; mh.className = 'day-card-hrs';
+        }
+      }
+    }
+    const t = wk.toFixed(2) + ' hrs';
+    document.getElementById(`${week}-total`).textContent        = t;
+    document.getElementById(`${week}-total-mobile`).textContent = t;
+    grand += wk;
+  });
+  document.getElementById('grand-total').innerHTML = grand.toFixed(2) + ' <small>hrs</small>';
+}
+
+recalcAll();
+
+function openModal()  { document.getElementById('modal').classList.add('open'); }
+function closeModal() { document.getElementById('modal').classList.remove('open'); document.getElementById('email-error').style.display='none'; }
+function updateMgrDisplay() {
+  const v = document.getElementById('manager-email').value;
+  document.getElementById('mgr-email-display').textContent = v || 'your manager';
+}
+
+function sendTimecard() {
+  const emailEl = document.getElementById('manager-email');
+  const email   = emailEl.value.trim();
+  const errEl   = document.getElementById('email-error');
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { errEl.style.display='block'; emailEl.focus(); return; }
+  errEl.style.display = 'none';
+
+  const empName   = document.getElementById('emp-name').value || '(not provided)';
+  const signature = document.getElementById('emp-sig').value  || '(unsigned)';
+  const subDate   = document.getElementById('submit-date').value || '';
+  const note      = document.getElementById('extra-note').value || '';
+
+  function weekText(weekKey, weekOffset) {
+    return Array.from({length:7}, (_,i) => {
+      const id = uid(weekKey, i);
+      const s  = state[id];
+      const date = addDays(START, weekOffset*7+i);
+      const ds = `${String(date.getMonth()+1).padStart(2,'0')}/${String(date.getDate()).padStart(2,'0')}`;
+      if (s.off) return `  ${DAY_NAMES[i]} ${ds}:  OFF`;
+      const startLbl = labelForMins(s.startMins);
+      const endLbl   = labelForMins(s.endMins);
+      const mins = s.endMins - s.startMins;
+      const hStr = mins > 0 ? (mins/60).toFixed(2) : '—';
+      return `  ${DAY_NAMES[i]} ${ds}:  In: ${startLbl}  Out: ${endLbl}  Hours: ${hStr}${s.notes?'  ['+s.notes+']':''}`;
+    }).join('\n');
+  }
+
+  const grand   = document.getElementById('grand-total').textContent.replace(/<[^>]+>/g,'').trim();
+  const subject = encodeURIComponent(`Timecard — ${empName} — ${fmtFull(w1s)} to ${fmtFull(w2e)}`);
+  const body    = encodeURIComponent(
+`EMPLOYEE TIMECARD
+=================
+
+Employee:   ${empName}
+Pay Period: ${fmtFull(w1s)} – ${fmtFull(w2e)}
+Submitted:  ${subDate}
+Signature:  ${signature}
+
+WEEK 1: ${fmt(w1s)} – ${fmt(w1e)}
+${weekText('week1',0)}
+Week 1 Total: ${document.getElementById('week1-total').textContent}
+
+WEEK 2: ${fmt(w2s)} – ${fmt(w2e)}
+${weekText('week2',1)}
+Week 2 Total: ${document.getElementById('week2-total').textContent}
+
+PAY PERIOD TOTAL: ${grand} hours
+${note?'\nNote: '+note:''}
+
+Submitted digitally.`);
+
+  window.location.href = `mailto:${email}?subject=${subject}&body=${body}`;
+  closeModal();
+  const t = document.getElementById('toast');
+  t.style.display = 'block';
+  setTimeout(() => t.style.display='none', 4000);
+}
+
+document.getElementById('modal').addEventListener('click', function(e) { if (e.target===this) closeModal(); });
+</script>
+</body>
+</html>
