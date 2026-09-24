@@ -303,7 +303,7 @@
     </div>
     <div class="modal-actions">
       <button class="btn-cancel" onclick="closeModal()">Cancel</button>
-      <button class="btn-send" onclick="sendTimecard()">Open in Email</button>
+      <button class="btn-send" onclick="sendTimecard()">Send Timecard</button>
     </div>
   </div>
 </div>
@@ -652,11 +652,82 @@ ${note?'\nNote: '+note:''}
 
 Submitted digitally.`);
 
-  window.location.href = `mailto:${email}?cc=holly@alleliteaudio.com&subject=${subject}&body=${body}`;
-  closeModal();
-  const t = document.getElementById('toast');
-  t.style.display = 'block';
-  setTimeout(() => t.style.display='none', 4000);
+  // Build plain-text body (not encoded)
+  function weekTextPlain(weekKey, weekOffset) {
+    return Array.from({length:7}, (_,i) => {
+      const id = uid(weekKey, i);
+      const s  = state[id];
+      const date = addDays(START, weekOffset*7+i);
+      const ds = `${String(date.getMonth()+1).padStart(2,'0')}/${String(date.getDate()).padStart(2,'0')}`;
+      if (s.off) return `  ${DAY_NAMES[i]} ${ds}:  OFF`;
+      const startLbl = labelForMins(s.startMins);
+      const endLbl   = labelForMins(s.endMins);
+      const mins = s.endMins - s.startMins;
+      const hStr = mins > 0 ? (mins/60).toFixed(2) : '—';
+      return `  ${DAY_NAMES[i]} ${ds}:  In: ${startLbl}  Out: ${endLbl}  Hours: ${hStr}${s.notes?'  ['+s.notes+']':''}`;
+    }).join('\n');
+  }
+
+  const grandText = document.getElementById('grand-total').textContent.replace(/<[^>]+>/g,'').trim();
+  const w1s2=START, w1e2=addDays(START,6), w2s2=addDays(START,7), w2e2=addDays(START,13);
+  const bodyText =
+`EMPLOYEE TIMECARD
+=================
+
+Employee:   ${empName}
+Pay Period: ${fmtFull(w1s2)} – ${fmtFull(w2e2)}
+Submitted:  ${subDate}
+Signature:  ${signature}
+
+WEEK 1: ${fmt(w1s2)} – ${fmt(w1e2)}
+${weekTextPlain('week1',0)}
+Week 1 Total: ${document.getElementById('week1-total').textContent}
+
+WEEK 2: ${fmt(w2s2)} – ${fmt(w2e2)}
+${weekTextPlain('week2',1)}
+Week 2 Total: ${document.getElementById('week2-total').textContent}
+
+PAY PERIOD TOTAL: ${grandText} hours
+${note?'\nNote: '+note:''}
+
+Submitted digitally.`;
+
+  const btnSend = document.querySelector('.btn-send');
+  btnSend.textContent = 'Sending…';
+  btnSend.disabled = true;
+
+  fetch('https://formspree.io/f/xaenbdvg', {
+    method: 'POST',
+    headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      _replyto: email,
+      _cc: 'holly@alleliteaudio.com',
+      _subject: `Timecard — ${empName} — ${fmtFull(w1s2)} to ${fmtFull(w2e2)}`,
+      message: bodyText,
+      employee: empName,
+      pay_period: `${fmtFull(w1s2)} – ${fmtFull(w2e2)}`,
+      submitted: subDate,
+      signature: signature
+    })
+  })
+  .then(r => r.json())
+  .then(data => {
+    btnSend.textContent = 'Send Timecard';
+    btnSend.disabled = false;
+    if (data.ok) {
+      closeModal();
+      const t = document.getElementById('toast');
+      t.style.display = 'block';
+      setTimeout(() => t.style.display='none', 4000);
+    } else {
+      alert('There was a problem sending. Please try again.');
+    }
+  })
+  .catch(() => {
+    btnSend.textContent = 'Send Timecard';
+    btnSend.disabled = false;
+    alert('Could not send. Please check your connection and try again.');
+  });
 }
 
 document.getElementById('modal').addEventListener('click', function(e) { if (e.target===this) closeModal(); });
