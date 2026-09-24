@@ -282,33 +282,12 @@
     <div class="email-note">Sends to <strong id="mgr-email-display">lenny@alleliteaudio.com</strong> + holly@alleliteaudio.com</div>
     <div class="btn-group">
       <button class="btn-print" onclick="window.print()">Print / PDF</button>
-      <button class="btn-submit" onclick="openModal()">Submit Timecard</button>
+      <button class="btn-submit" id="btn-submit-main" onclick="sendTimecard()">Submit Timecard</button>
     </div>
   </div>
 </div>
 
-<div class="modal-overlay" id="modal">
-  <div class="modal">
-    <div class="modal-handle"></div>
-    <h2>Submit Timecard</h2>
-    <p>Your timecard will open in your email app, ready to send.</p>
-    <div class="modal-field">
-      <label>Manager / Payroll Email</label>
-      <input type="email" id="manager-email" value="lenny@alleliteaudio.com" oninput="updateMgrDisplay()" inputmode="email">
-      <div class="error-msg" id="email-error">Please enter a valid email address.</div>
-    </div>
-    <div class="modal-field">
-      <label>Additional Note (optional)</label>
-      <input type="text" id="extra-note" placeholder="e.g. Took PTO on Tuesday">
-    </div>
-    <div class="modal-actions">
-      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
-      <button class="btn-send" onclick="sendTimecard()">Send Timecard</button>
-    </div>
-  </div>
-</div>
-
-<div class="toast" id="toast">Timecard ready — check your email app!</div>
+<div class="toast" id="toast">Timecard submitted successfully!</div>
 
 <script>
 const DAY_NAMES   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
@@ -594,24 +573,12 @@ function recalcAll() {
 
 recalcAll();
 
-function openModal()  { document.getElementById('modal').classList.add('open'); }
-function closeModal() { document.getElementById('modal').classList.remove('open'); document.getElementById('email-error').style.display='none'; }
-function updateMgrDisplay() {
-  const v = document.getElementById('manager-email').value;
-  document.getElementById('mgr-email-display').textContent = v || 'your manager';
-}
 
 function sendTimecard() {
-  const emailEl = document.getElementById('manager-email');
-  const email   = emailEl.value.trim();
-  const errEl   = document.getElementById('email-error');
-  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { errEl.style.display='block'; emailEl.focus(); return; }
-  errEl.style.display = 'none';
-
-  const empName   = document.getElementById('emp-name').value || '(not provided)';
-  const signature = document.getElementById('emp-sig').value  || '(unsigned)';
+  const empName   = document.getElementById('emp-name').value.trim() || '(not provided)';
+  const signature = document.getElementById('emp-sig').value.trim()  || '(unsigned)';
   const subDate   = document.getElementById('submit-date').value || '';
-  const note      = document.getElementById('extra-note').value || '';
+  const note      = '';
 
   function weekText(weekKey, weekOffset) {
     return Array.from({length:7}, (_,i) => {
@@ -692,15 +659,15 @@ ${note?'\nNote: '+note:''}
 
 Submitted digitally.`;
 
-  const btnSend = document.querySelector('.btn-send');
-  btnSend.textContent = 'Sending…';
-  btnSend.disabled = true;
+  const btn = document.getElementById('btn-submit-main');
+  btn.textContent = 'Sending…';
+  btn.disabled = true;
 
   fetch('https://formspree.io/f/xaenbdvg', {
     method: 'POST',
     headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      _replyto: email,
+      _replyto: 'lenny@alleliteaudio.com',
       _cc: 'holly@alleliteaudio.com',
       _subject: `Timecard — ${empName} — ${fmtFull(w1s2)} to ${fmtFull(w2e2)}`,
       message: bodyText,
@@ -712,25 +679,23 @@ Submitted digitally.`;
   })
   .then(r => r.json())
   .then(data => {
-    btnSend.textContent = 'Send Timecard';
-    btnSend.disabled = false;
+    btn.textContent = 'Submit Timecard';
+    btn.disabled = false;
     if (data.ok) {
-      closeModal();
       const t = document.getElementById('toast');
       t.style.display = 'block';
-      setTimeout(() => t.style.display='none', 4000);
+      setTimeout(() => t.style.display='none', 5000);
     } else {
       alert('There was a problem sending. Please try again.');
     }
   })
   .catch(() => {
-    btnSend.textContent = 'Send Timecard';
-    btnSend.disabled = false;
+    btn.textContent = 'Submit Timecard';
+    btn.disabled = false;
     alert('Could not send. Please check your connection and try again.');
   });
 }
 
-document.getElementById('modal').addEventListener('click', function(e) { if (e.target===this) closeModal(); });
 </script>
 </body>
 </html>
