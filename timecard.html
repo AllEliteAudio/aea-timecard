@@ -45,7 +45,7 @@
   .period-badge   { font-family: 'IBM Plex Mono',monospace; font-size: 10px; letter-spacing: .06em; text-align: right; opacity: .8; line-height: 1.5; }
 
   /* Employee */
-  .employee-section { border-bottom: 1px solid var(--rule); padding: 18px 24px; }
+  .employee-section { border-bottom: 1px solid var(--rule); padding: 18px 24px; display: flex; gap: 32px; flex-wrap: wrap; align-items: flex-end; }
   .field-group label { display: block; font-size: 9px; font-family: 'IBM Plex Mono',monospace; letter-spacing: .12em; text-transform: uppercase; color: #888; margin-bottom: 5px; }
   .field-group input { width: 100%; max-width: 320px; border: none; border-bottom: 1.5px solid var(--rule); background: transparent; font-family: 'IBM Plex Sans',sans-serif; font-size: 15px; color: var(--ink); padding: 4px 0; outline: none; transition: border-color .15s; }
   .field-group input:focus { border-bottom-color: var(--accent); }
@@ -222,6 +222,10 @@
       <label>Employee Name</label>
       <input type="text" id="emp-name" placeholder="Full name" autocomplete="name">
     </div>
+    <div class="field-group">
+      <label>Pay Period Start <span style="font-weight:400;opacity:.6">(Sunday)</span></label>
+      <input type="date" id="period-start" oninput="onPeriodChange()">
+    </div>
   </div>
 
   <!-- Week 1 -->
@@ -275,7 +279,7 @@
   </div>
 
   <div class="submit-section">
-    <div class="email-note">Sends to <strong id="mgr-email-display">lenny@alleliteaudio.com</strong></div>
+    <div class="email-note">Sends to <strong id="mgr-email-display">lenny@alleliteaudio.com</strong> + holly@alleliteaudio.com</div>
     <div class="btn-group">
       <button class="btn-print" onclick="window.print()">Print / PDF</button>
       <button class="btn-submit" onclick="openModal()">Submit Timecard</button>
@@ -334,21 +338,48 @@ function labelForMins(mins) {
 }
 
 // Dates
-function getSunday() {
+function addDays(d,n){ const r=new Date(d); r.setDate(r.getDate()+n); return r; }
+function fmt(d)     { return `${MONTH_NAMES[d.getMonth()]} ${d.getDate()}`; }
+function fmtFull(d) { return `${MONTH_NAMES[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`; }
+function toYMD(d)   { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+
+// Default: the Sunday two weeks ago
+function defaultSunday() {
   const t = new Date(); t.setHours(0,0,0,0);
   const s = new Date(t);
   s.setDate(t.getDate() - t.getDay() - 14);
   return s;
 }
-const START = getSunday();
-function addDays(d,n){ const r=new Date(d); r.setDate(r.getDate()+n); return r; }
-function fmt(d)     { return `${MONTH_NAMES[d.getMonth()]} ${d.getDate()}`; }
-function fmtFull(d) { return `${MONTH_NAMES[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`; }
 
-const w1s=START, w1e=addDays(START,6), w2s=addDays(START,7), w2e=addDays(START,13);
-document.getElementById('period-display').innerHTML = `Pay Period<br>${fmtFull(w1s)} – ${fmtFull(w2e)}`;
-document.getElementById('week1-range').textContent  = `${fmt(w1s)} – ${fmt(w1e)}`;
-document.getElementById('week2-range').textContent  = `${fmt(w2s)} – ${fmt(w2e)}`;
+let START = defaultSunday();
+
+// Set the date input to the default start
+const periodInput = document.getElementById('period-start');
+periodInput.value = toYMD(START);
+
+function updatePeriodLabels() {
+  const w1s=START, w1e=addDays(START,6), w2s=addDays(START,7), w2e=addDays(START,13);
+  document.getElementById('period-display').innerHTML = `Pay Period<br>${fmtFull(w1s)} – ${fmtFull(w2e)}`;
+  document.getElementById('week1-range').textContent  = `${fmt(w1s)} – ${fmt(w1e)}`;
+  document.getElementById('week2-range').textContent  = `${fmt(w2s)} – ${fmt(w2e)}`;
+}
+
+function onPeriodChange() {
+  const val = document.getElementById('period-start').value;
+  if (!val) return;
+  // Parse as local date (YYYY-MM-DD)
+  const [y,m,d] = val.split('-').map(Number);
+  const picked = new Date(y, m-1, d);
+  // Snap back to Sunday if they picked a non-Sunday
+  const day = picked.getDay();
+  if (day !== 0) picked.setDate(picked.getDate() - day);
+  START = picked;
+  document.getElementById('period-start').value = toYMD(START);
+  updatePeriodLabels();
+  rebuildWeeks();
+}
+
+updatePeriodLabels();
 
 const td = new Date();
 document.getElementById('submit-date').value =
@@ -513,8 +544,20 @@ function toggleOff(id, isOff) {
   recalcAll();
 }
 
-buildWeek('week1', 0);
-buildWeek('week2', 1);
+function rebuildWeeks() {
+  // Reset state
+  Object.keys(state).forEach(k => delete state[k]);
+  // Clear existing content
+  ['week1','week2'].forEach(w => {
+    document.getElementById(`${w}-body`).innerHTML = '';
+    document.getElementById(`${w}-cards`).innerHTML = '';
+  });
+  buildWeek('week1', 0);
+  buildWeek('week2', 1);
+  recalcAll();
+}
+
+rebuildWeeks();
 
 function recalcAll() {
   let grand = 0;
@@ -609,7 +652,7 @@ ${note?'\nNote: '+note:''}
 
 Submitted digitally.`);
 
-  window.location.href = `mailto:${email}?subject=${subject}&body=${body}`;
+  window.location.href = `mailto:${email}?cc=holly@alleliteaudio.com&subject=${subject}&body=${body}`;
   closeModal();
   const t = document.getElementById('toast');
   t.style.display = 'block';
