@@ -578,48 +578,9 @@ function sendTimecard() {
   const empName   = document.getElementById('emp-name').value.trim() || '(not provided)';
   const signature = document.getElementById('emp-sig').value.trim()  || '(unsigned)';
   const subDate   = document.getElementById('submit-date').value || '';
-  const note      = '';
 
-  function weekText(weekKey, weekOffset) {
-    return Array.from({length:7}, (_,i) => {
-      const id = uid(weekKey, i);
-      const s  = state[id];
-      const date = addDays(START, weekOffset*7+i);
-      const ds = `${String(date.getMonth()+1).padStart(2,'0')}/${String(date.getDate()).padStart(2,'0')}`;
-      if (s.off) return `  ${DAY_NAMES[i]} ${ds}:  OFF`;
-      const startLbl = labelForMins(s.startMins);
-      const endLbl   = labelForMins(s.endMins);
-      const mins = s.endMins - s.startMins;
-      const hStr = mins > 0 ? (mins/60).toFixed(2) : '—';
-      return `  ${DAY_NAMES[i]} ${ds}:  In: ${startLbl}  Out: ${endLbl}  Hours: ${hStr}${s.notes?'  ['+s.notes+']':''}`;
-    }).join('\n');
-  }
+  const w1s2=START, w1e2=addDays(START,6), w2s2=addDays(START,7), w2e2=addDays(START,13);
 
-  const grand   = document.getElementById('grand-total').textContent.replace(/<[^>]+>/g,'').trim();
-  const subject = encodeURIComponent(`Timecard — ${empName} — ${fmtFull(w1s)} to ${fmtFull(w2e)}`);
-  const body    = encodeURIComponent(
-`EMPLOYEE TIMECARD
-=================
-
-Employee:   ${empName}
-Pay Period: ${fmtFull(w1s)} – ${fmtFull(w2e)}
-Submitted:  ${subDate}
-Signature:  ${signature}
-
-WEEK 1: ${fmt(w1s)} – ${fmt(w1e)}
-${weekText('week1',0)}
-Week 1 Total: ${document.getElementById('week1-total').textContent}
-
-WEEK 2: ${fmt(w2s)} – ${fmt(w2e)}
-${weekText('week2',1)}
-Week 2 Total: ${document.getElementById('week2-total').textContent}
-
-PAY PERIOD TOTAL: ${grand} hours
-${note?'\nNote: '+note:''}
-
-Submitted digitally.`);
-
-  // Build plain-text body (not encoded)
   function weekTextPlain(weekKey, weekOffset) {
     return Array.from({length:7}, (_,i) => {
       const id = uid(weekKey, i);
@@ -636,7 +597,6 @@ Submitted digitally.`);
   }
 
   const grandText = document.getElementById('grand-total').textContent.replace(/<[^>]+>/g,'').trim();
-  const w1s2=START, w1e2=addDays(START,6), w2s2=addDays(START,7), w2e2=addDays(START,13);
   const bodyText =
 `EMPLOYEE TIMECARD
 =================
@@ -654,8 +614,7 @@ WEEK 2: ${fmt(w2s2)} – ${fmt(w2e2)}
 ${weekTextPlain('week2',1)}
 Week 2 Total: ${document.getElementById('week2-total').textContent}
 
-PAY PERIOD TOTAL: ${grandText} hours
-${note?'\nNote: '+note:''}
+PAY PERIOD TOTAL: ${grandText}
 
 Submitted digitally.`;
 
@@ -663,19 +622,19 @@ Submitted digitally.`;
   btn.textContent = 'Sending…';
   btn.disabled = true;
 
+  const formData = new FormData();
+  formData.append('_subject', `Timecard — ${empName} — ${fmtFull(w1s2)} to ${fmtFull(w2e2)}`);
+  formData.append('_replyto', 'lenny@alleliteaudio.com');
+  formData.append('employee', empName);
+  formData.append('pay_period', `${fmtFull(w1s2)} – ${fmtFull(w2e2)}`);
+  formData.append('submitted', subDate);
+  formData.append('signature', signature);
+  formData.append('timecard', bodyText);
+
   fetch('https://formspree.io/f/xaenbdvg', {
     method: 'POST',
-    headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      _replyto: 'lenny@alleliteaudio.com',
-      _cc: 'holly@alleliteaudio.com',
-      _subject: `Timecard — ${empName} — ${fmtFull(w1s2)} to ${fmtFull(w2e2)}`,
-      message: bodyText,
-      employee: empName,
-      pay_period: `${fmtFull(w1s2)} – ${fmtFull(w2e2)}`,
-      submitted: subDate,
-      signature: signature
-    })
+    headers: { 'Accept': 'application/json' },
+    body: formData
   })
   .then(r => r.json())
   .then(data => {
@@ -686,10 +645,11 @@ Submitted digitally.`;
       t.style.display = 'block';
       setTimeout(() => t.style.display='none', 5000);
     } else {
-      alert('There was a problem sending. Please try again.');
+      const errs = data.errors ? data.errors.map(e=>e.message).join(', ') : 'Unknown error';
+      alert('Submission failed: ' + errs);
     }
   })
-  .catch(() => {
+  .catch(err => {
     btn.textContent = 'Submit Timecard';
     btn.disabled = false;
     alert('Could not send. Please check your connection and try again.');
