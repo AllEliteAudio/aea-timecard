@@ -279,7 +279,7 @@
   </div>
 
   <div class="submit-section">
-    <div class="email-note">Sends to <strong id="mgr-email-display">lenny@alleliteaudio.com</strong> + holly@alleliteaudio.com</div>
+    <div class="email-note">Sends to <strong>sales@alleliteaudio.com</strong> + holly@alleliteaudio.com</div>
     <div class="btn-group">
       <button class="btn-print" onclick="window.print()">Print / PDF</button>
       <button class="btn-submit" id="btn-submit-main" onclick="sendTimecard()">Submit Timecard</button>
@@ -624,7 +624,7 @@ Submitted digitally.`;
 
   const formData = new FormData();
   formData.append('_subject', `Timecard — ${empName} — ${fmtFull(w1s2)} to ${fmtFull(w2e2)}`);
-  formData.append('_replyto', 'lenny@alleliteaudio.com');
+  formData.append('_replyto', 'sales@alleliteaudio.com');
   formData.append('employee', empName);
   formData.append('pay_period', `${fmtFull(w1s2)} – ${fmtFull(w2e2)}`);
   formData.append('submitted', subDate);
